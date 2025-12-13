@@ -1,3 +1,18 @@
+buildscript {
+    ext.kotlin_version = '2.1.0' // <-- ¡Actualizado a la versión requerida!
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    dependencies {
+        // ¡Actualizado para eliminar la advertencia!
+        classpath 'com.android.tools.build:gradle:8.6.0'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        classpath 'com.google.gms:google-services:4.4.1' // Si usas Google Services
+    }
+}
+
 allprojects {
     repositories {
         google()
@@ -16,4 +31,3 @@ subprojects {
 tasks.register("clean", Delete) {
     delete rootProject.buildDir
 }
-
