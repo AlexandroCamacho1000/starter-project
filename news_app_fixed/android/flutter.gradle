@@ -1,0 +1,11 @@
+// android/flutter.gradle - Archivo auxiliar
+def flutterRoot = {
+    def properties = new Properties()
+    file("local.properties").withReader('UTF-8') { reader ->
+        properties.load(reader)
+    }
+    return properties.getProperty("flutter.sdk")
+}()
+
+// Cargar Flutter desde ruta relativa
+apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"

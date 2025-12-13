@@ -1,6 +1,6 @@
 {
   "projects": {
-    "default": // TODO: ADD PROJECT ID
+    "default": "app-articles-339e5"
   },
   "targets": {},
   "etags": {}

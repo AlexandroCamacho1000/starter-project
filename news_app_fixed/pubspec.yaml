@@ -1,0 +1,40 @@
+name: news_app_fixed
+description: News App
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # ✅ FIREBASE ACTUALIZADO - VERSIONES COMPATIBLES
+  firebase_core: ^4.2.1
+  firebase_auth: ^6.1.2
+  cloud_firestore: ^6.1.0
+  firebase_storage: ^13.0.4
+
+  # Login & Auth
+  google_sign_in: ^6.1.5  # ✅ Actualizado
+
+  # BLoC y State Management
+  flutter_bloc: ^9.1.1  # ✅ Actualizado
+  bloc: ^9.1.0          # ✅ AÑADE ESTO
+  equatable: ^2.0.7
+
+  # UI y Utilidades
+  image_picker: ^1.1.1
+  cached_network_image: ^3.4.0
+  intl: ^0.20.2
+  http: ^1.2.0
+  share_plus: ^12.0.1   # ✅ Actualizado
+  google_fonts: ^6.1.0
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  # build_runner: ^2.4.7  # ⏸️ Comenta temporalmente

@@ -1,0 +1,12 @@
+analyzer:  
+  errors:  
+    uri_does_not_exist: ignore  
+    undefined_class: ignore  
+    undefined_annotation: ignore  
+    undefined_identifier: ignore  
+    non_type_as_type_argument: ignore  
+    invalid_constant: ignore  
+linter:  
+  rules:  
+    avoid_print: false  
+    depend_on_referenced_packages: false 
