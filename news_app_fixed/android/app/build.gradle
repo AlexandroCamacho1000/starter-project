@@ -1,8 +1,7 @@
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
-// Forma compatible de aplicar el plugin de Flutter
-def flutterProjectRoot = rootProject.projectDir.parentFile.toPath()
-apply from: "$flutterProjectRoot/packages/flutter_tools/gradle/flutter.gradle"
+// ✅ FORMA ESTÁNDAR Y SEGURA: Aplicar el plugin de Flutter
+apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
 // 🔥 Plugin crítico de Google Services para Firebase
 apply plugin: 'com.google.gms.google-services'
 
