@@ -1,11 +1,13 @@
-plugins {
-    id "com.android.application"
-    id "kotlin-android"
-    id "dev.flutter.flutter-gradle-plugin"
-    id "com.google.gms.google-services" // 🔥 LÍNEA CRÍTICA PARA FIREBASE
-}
+apply plugin: 'com.android.application'
+apply plugin: 'kotlin-android'
+// Forma compatible de aplicar el plugin de Flutter
+def flutterProjectRoot = rootProject.projectDir.parentFile.toPath()
+apply from: "$flutterProjectRoot/packages/flutter_tools/gradle/flutter.gradle"
+// 🔥 Plugin crítico de Google Services para Firebase
+apply plugin: 'com.google.gms.google-services'
 
 android {
+    // Espacio de nombres interno (puede ser diferente al applicationId)
     namespace "com.example.news_app_fixed"
     compileSdkVersion flutter.compileSdkVersion
     ndkVersion flutter.ndkVersion
@@ -20,8 +22,8 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId "com.example.news_app_fixed" // ⚠️ DEBE COINCIDIR CON FIREBASE
+        // 🔥 IDENTIFICADOR PÚBLICO: DEBE coincidir con Firebase ('com.alejandro.newsapp')
+        applicationId "com.alejandro.newsapp"
         minSdkVersion flutter.minSdkVersion
         targetSdkVersion flutter.targetSdkVersion
         versionCode flutter.versionCode
@@ -30,8 +32,6 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig signingConfigs.debug
         }
     }
@@ -41,7 +41,7 @@ flutter {
     source '../..'
 }
 
-// 🔥 ESTE BLOQUE DE DEPENDENCIAS ES CRÍTICO - AGREGA TODO
+// 🔥 Dependencias esenciales para Firebase Authentication y Google Sign-In
 dependencies {
     implementation platform('com.google.firebase:firebase-bom:33.0.0')
     implementation 'com.google.firebase:firebase-auth'
