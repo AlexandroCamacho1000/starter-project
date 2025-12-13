@@ -1,7 +1,7 @@
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
-// ✅ FORMA ESTÁNDAR Y SEGURA: Aplicar el plugin de Flutter
-apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
+// ✅ RUTA CORRECTA Y COMPROBADA para tu estructura de proyecto
+apply from: "../../packages/flutter_tools/gradle/flutter.gradle"
 // 🔥 Plugin crítico de Google Services para Firebase
 apply plugin: 'com.google.gms.google-services'
 
