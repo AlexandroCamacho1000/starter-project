@@ -10,8 +10,9 @@ pluginManagement {
 
     includeBuild("${settings.ext.flutterSdkPath}/packages/flutter_tools/gradle")
 
+    // 🔥 REPOSITORIOS CRÍTICOS: Aquí Gradle busca los plugins (como google-services)
     repositories {
-        google()
+        google()  // ¡IMPORTANTE! Busca aquí el plugin com.google.gms.google-services
         mavenCentral()
         gradlePluginPortal()
     }
