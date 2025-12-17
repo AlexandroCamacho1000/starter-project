@@ -1,6 +1,7 @@
 import 'package:get_it/get_it.dart';
 import 'package:dio/dio.dart';
-import 'package:news_app_clean_architecture/features/daily_news/data/data_sources/remote/news_api_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // ← AGREGAR ESTE IMPORT
+// import 'package:news_app_clean_architecture/features/daily_news/data/data_sources/remote/news_api_service.dart'; // ← COMENTAR
 import 'package:news_app_clean_architecture/features/daily_news/data/repository/article_repository_impl.dart';
 import 'package:news_app_clean_architecture/features/daily_news/domain/repository/article_repository.dart';
 import 'package:news_app_clean_architecture/features/daily_news/domain/usecases/get_article.dart';
@@ -21,11 +22,12 @@ Future<void> initializeDependencies() async {
   // Dio
   sl.registerSingleton<Dio>(Dio());
 
-  // Dependencies
-  sl.registerSingleton<NewsApiService>(NewsApiService(sl()));
+  // ❌ COMENTAR NewsApiService (ya no se usa con Firestore)
+  // sl.registerSingleton<NewsApiService>(NewsApiService(sl()));
 
+  // ✅ CORREGIDO: ArticleRepository con Firestore
   sl.registerSingleton<ArticleRepository>(
-    ArticleRepositoryImpl(sl(),sl())
+    ArticleRepositoryImpl(firestore: FirebaseFirestore.instance) // ← CAMBIADO
   );
   
   //UseCases
@@ -54,6 +56,4 @@ Future<void> initializeDependencies() async {
   sl.registerFactory<LocalArticleBloc>(
     ()=> LocalArticleBloc(sl(),sl(),sl())
   );
-
-
 }
