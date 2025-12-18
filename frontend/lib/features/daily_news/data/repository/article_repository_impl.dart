@@ -1,199 +1,155 @@
-// lib/features/daily_news/data/repository/article_repository_impl.dart
+// VERSIÓN DEFINITIVA CON FIREBASE STORAGE SDK
 import 'package:dio/dio.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:news_app_clean_architecture/core/resources/data_state.dart';
 import 'package:news_app_clean_architecture/features/daily_news/domain/entities/article.dart';
 import 'package:news_app_clean_architecture/features/daily_news/domain/repository/article_repository.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-// Función auxiliar para obtener campos sin problemas de espacios
-dynamic _getField(Map<String, dynamic> data, List<String> possibleNames) {
-  for (final name in possibleNames) {
-    if (data.containsKey(name)) {
-      return data[name];
-    }
-  }
-  return null;
-}
-
-// Función auxiliar para limpiar valores de Firestore
-String _cleanFirestoreValue(String? value) {
-  if (value == null || value.isEmpty) return value ?? '';
-  
-  // Quitar comillas extras y espacios
-  value = value.trim();
-  if (value.endsWith('"') || value.startsWith('"')) {
-    value = value.replaceAll('"', '');
-  }
-  
-  return value;
-}
-
 class ArticleRepositoryImpl implements ArticleRepository {
   final FirebaseFirestore firestore;
+  final FirebaseStorage storage;
 
-  ArticleRepositoryImpl({required this.firestore});
+  ArticleRepositoryImpl({
+    required this.firestore,
+    FirebaseStorage? storage,
+  }) : storage = storage ?? FirebaseStorage.instance;
 
   @override
   Future<DataState<List<ArticleEntity>>> getNewsArticles() async {
-    print('=' * 50);
-    print('🚀 INICIANDO getNewsArticles() - VERSIÓN CORREGIDA');
-    print('=' * 50);
+    print('🚀 OBTENIENDO ARTÍCULOS CON FIREBASE STORAGE SDK');
     
     try {
-      // CONSULTA TODOS
-      print('1️⃣ Consultando TODOS los artículos...');
-      final snapshot = await firestore
-          .collection('articles')
-          .get();
-
-      print('2️⃣ Resultado: ${snapshot.docs.length} documentos\n');
+      // 1. Obtener artículos de Firestore
+      final snapshot = await firestore.collection('articles').get();
+      print('📚 ${snapshot.docs.length} artículos encontrados');
       
-      if (snapshot.docs.isEmpty) {
-        print('⚠️  Colección vacía');
-        return DataSuccess([]);
-      }
-      
-      // VERIFICAR CAMPOS REALES
-      print('🔍 VERIFICANDO CAMPOS REALES:');
-      for (int i = 0; i < snapshot.docs.length; i++) {
-        final doc = snapshot.docs[i];
-        final data = doc.data();
-        
-        print('\n📄 ARTÍCULO ${i+1}: ${doc.id}');
-        
-        // Verificar contenido
-        final contenidoCrudo = _getField(data, ['content', ' content'])?.toString();
-        final contenidoLimpio = _cleanFirestoreValue(contenidoCrudo);
-        print('├─ Content (crudo): $contenidoCrudo');
-        print('├─ Content (limpio): $contenidoLimpio');
-        print('├─ ¿Tiene content?: ${contenidoCrudo != null ? "SÍ" : "NO"}');
-        
-        // Verificar excerpt
-        final excerptCrudo = _getField(data, ['excerpt', ' excerpt'])?.toString();
-        final excerptLimpio = _cleanFirestoreValue(excerptCrudo);
-        print('├─ Excerpt (crudo): $excerptCrudo');
-        print('└─ Excerpt (limpio): $excerptLimpio');
-        
-        // Mostrar todos los campos para debug
-        print('   Campos disponibles: ${data.keys.toList()}');
-      }
-      
-      // CONVERTIR CON LAS FUNCIONES CORRECTAS
-      print('\n3️⃣ CONVIRTIENDO CON MÉTODOS CORREGIDOS...');
-      final List<ArticleEntity> articles = [];
+      // 2. Procesar cada artículo CON IMÁGENES REALES
+      final articles = <ArticleEntity>[];
       
       for (final doc in snapshot.docs) {
-        final data = doc.data();
-        
-        print('\n🔄 Convirtiendo: ${doc.id}');
-        
         try {
-          // Obtener valores usando las funciones corregidas
-          final title = _cleanFirestoreValue(
-            _getField(data, ['title', ' title'])?.toString()
-          ) ?? 'Sin título';
-          
-          final content = _cleanFirestoreValue(
-            _getField(data, ['content', ' content'])?.toString()
-          ) ?? 'Contenido no disponible';
-          
-          final excerpt = _cleanFirestoreValue(
-            _getField(data, ['excerpt', ' excerpt'])?.toString()
-          ) ?? '';
-          
-          final author = _getField(data, ['authorId', ' authorId'])?.toString() ?? 'Anónimo';
-          final thumbnail = _cleanFirestoreValue(
-            _getField(data, ['thumbnailURL', ' thumbnailURL'])?.toString()
-          ) ?? '';
-          
-          final createdAt = _getField(data, ['createdAt', ' createdAt']);
-          String publishedAt;
-          
-          if (createdAt != null && createdAt is Timestamp) {
-            publishedAt = createdAt.toDate().toIso8601String();
-          } else {
-            publishedAt = DateTime.now().toIso8601String();
-            print('   ⚠️  Sin fecha válida, usando actual');
-          }
-          
-          // MOSTRAR SIN ERRORES DE substring
-          print('   Título: $title');
-          
-          // Manejar excerpt seguro
-          if (excerpt.isNotEmpty && excerpt.length > 30) {
-            print('   Excerpt: ${excerpt.substring(0, 30)}...');
-          } else {
-            print('   Excerpt: $excerpt');
-          }
-          
-          // Manejar content seguro
-          if (content.isNotEmpty && content.length > 50) {
-            print('   Content: ${content.substring(0, 50)}...');
-          } else {
-            print('   Content: $content');
-          }
-          
-          final article = ArticleEntity(
-            id: doc.id.hashCode,
-            author: author,
-            title: title,
-            description: excerpt,
-            url: '',
-            urlToImage: thumbnail,
-            publishedAt: publishedAt,
-            content: content,
-          );
-          
+          final article = await _createArticleWithRealImage(doc);
           articles.add(article);
-          print('   ✅ Convertido correctamente');
-          
         } catch (e) {
-          print('   ❌ ERROR convirtiendo: $e');
-          print('   Datos del documento: $data');
-          // Continuar con el siguiente artículo en lugar de fallar todo
-          continue;
+          print('⚠️ Error procesando artículo ${doc.id}: $e');
         }
       }
       
-      print('\n🎉 ${articles.length} artículos convertidos');
-      
-      // RESUMEN FINAL
-      print('\n📋 RESUMEN FINAL:');
-      for (int i = 0; i < articles.length; i++) {
-        final article = articles[i];
-        print('${i+1}. ${article.title}');
-        
-        // Mostrar contenido de forma segura
-        if (article.description != null && article.description!.isNotEmpty) {
-          final desc = article.description!;
-          print('   Excerpt: ${desc.length > 50 ? '${desc.substring(0, 50)}...' : desc}');
-        }
-        
-        if (article.content != null && article.content!.isNotEmpty) {
-          final cont = article.content!;
-          print('   Content: ${cont.length > 50 ? '${cont.substring(0, 50)}...' : cont}');
-        }
-      }
-      
-      if (articles.isEmpty) {
-        print('⚠️  No se pudo convertir ningún artículo');
-        return DataFailed(DioException(
-          requestOptions: RequestOptions(path: '/articles'),
-          error: 'No se pudieron convertir los artículos',
-          type: DioExceptionType.unknown,
-        ));
-      }
-      
+      print('\n🎉 ${articles.length} artículos procesados exitosamente');
       return DataSuccess(articles);
       
     } catch (e) {
-      print('❌ ERROR: $e');
-      
+      print('💥 ERROR CRÍTICO: $e');
       return DataFailed(DioException(
         requestOptions: RequestOptions(path: '/articles'),
-        error: e.toString(),
-        type: DioExceptionType.unknown,
+        error: 'Error: $e',
+        type: DioExceptionType.connectionError,
       ));
+    }
+  }
+
+  Future<ArticleEntity> _createArticleWithRealImage(DocumentSnapshot doc) async {
+    final data = doc.data() as Map<String, dynamic>;
+    final title = data['title']?.toString()?.trim() ?? 'Sin título';
+    
+    print('\n📰 Procesando: "$title"');
+    
+    // Obtener URL gs:// de la base de datos
+    final gsUrl = data['thumbnailURL']?.toString()?.trim() ?? 
+                  data[' thumbnailURL']?.toString()?.trim() ?? '';
+    
+    print('   🔗 URL en DB: $gsUrl');
+    
+    // Obtener URL REAL de Firebase Storage
+    String imageUrl = await _getRealImageUrlFromGsUrl(gsUrl, title);
+    
+    print('   🖼️ Imagen final: $imageUrl');
+    
+    return ArticleEntity(
+      id: doc.id.hashCode,
+      author: data['authorId']?.toString() ?? 'Anónimo',
+      title: title,
+      description: data['excerpt']?.toString()?.trim() ?? '',
+      url: '',
+      urlToImage: imageUrl,
+      publishedAt: data['createdAt'] != null && data['createdAt'] is Timestamp
+          ? (data['createdAt'] as Timestamp).toDate().toIso8601String()
+          : DateTime.now().toIso8601String(),
+      content: data['content']?.toString()?.trim() ?? '',
+    );
+  }
+
+  Future<String> _getRealImageUrlFromGsUrl(String gsUrl, String title) async {
+    if (gsUrl.isEmpty) {
+      print('   ⚠️ No hay imagen en DB, usando por defecto');
+      return _getFallbackImage(title);
+    }
+    
+    try {
+      print('   🔄 Obteniendo URL REAL con Firebase Storage SDK...');
+      
+      // MÉTODO CORRECTO: Usar refFromURL del SDK
+      // Convierte gs:// directamente a referencia
+      final storageRef = storage.refFromURL(gsUrl);
+      
+      // Obtener URL de descarga REAL (con token de acceso)
+      final downloadUrl = await storageRef.getDownloadURL();
+      
+      print('   ✅ ¡URL REAL OBTENIDA!');
+      print('      $downloadUrl');
+      
+      return downloadUrl;
+      
+    } catch (e) {
+      print('   ❌ Error obteniendo imagen real: $e');
+      
+      // Intentar método alternativo si refFromURL falla
+      return await _tryAlternativeMethod(gsUrl, title);
+    }
+  }
+
+  Future<String> _tryAlternativeMethod(String gsUrl, String title) async {
+    print('   🔄 Intentando método alternativo...');
+    
+    try {
+      // Extraer path del archivo de la URL gs://
+      // Formato: gs://bucket/path/to/file.jpg
+      final withoutGs = gsUrl.substring(5); // Quitar "gs://"
+      final slashIndex = withoutGs.indexOf('/');
+      
+      if (slashIndex != -1) {
+        final filePath = withoutGs.substring(slashIndex + 1);
+        print('   📁 Path extraído: $filePath');
+        
+        // Crear referencia usando el path
+        final ref = storage.ref(filePath);
+        final downloadUrl = await ref.getDownloadURL();
+        
+        print('   ✅ ¡URL obtenida con método alternativo!');
+        return downloadUrl;
+      }
+    } catch (e) {
+      print('   ❌ Método alternativo también falló: $e');
+    }
+    
+    // Si todo falla, usar imagen por defecto
+    print('   ⚠️ Usando imagen por defecto');
+    return _getFallbackImage(title);
+  }
+
+  String _getFallbackImage(String title) {
+    // Imágenes reales de alta calidad de Unsplash
+    final lowerTitle = title.toLowerCase();
+    
+    if (lowerTitle.contains('christmas') || lowerTitle.contains('navidad')) {
+      return 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=800&h=600&fit=crop';
+    } 
+    else if (lowerTitle.contains('cat') || lowerTitle.contains('gato')) {
+      return 'https://images.unsplash.com/photo-1514888286974-6d03bde4ba42?w=800&h=600&fit=crop';
+    }
+    else {
+      return 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800&h=600&fit=crop';
     }
   }
 
