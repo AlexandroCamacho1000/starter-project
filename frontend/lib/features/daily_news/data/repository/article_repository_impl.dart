@@ -1,4 +1,5 @@
-// VERSIÓN DEFINITIVA CON FIREBASE STORAGE SDK
+import 'dart:math'; // ✅ IMPORT NECESARIO para la función min()
+
 import 'package:dio/dio.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:news_app_clean_architecture/core/resources/data_state.dart';
@@ -17,19 +18,17 @@ class ArticleRepositoryImpl implements ArticleRepository {
 
   @override
   Future<DataState<List<ArticleEntity>>> getNewsArticles() async {
-    print('🚀 OBTENIENDO ARTÍCULOS CON FIREBASE STORAGE SDK');
+    print('🚀 OBTENIENDO ARTÍCULOS CON AUTORES');
     
     try {
-      // 1. Obtener artículos de Firestore
       final snapshot = await firestore.collection('articles').get();
       print('📚 ${snapshot.docs.length} artículos encontrados');
       
-      // 2. Procesar cada artículo CON IMÁGENES REALES
       final articles = <ArticleEntity>[];
       
       for (final doc in snapshot.docs) {
         try {
-          final article = await _createArticleWithRealImage(doc);
+          final article = await _createArticleWithAuthor(doc);
           articles.add(article);
         } catch (e) {
           print('⚠️ Error procesando artículo ${doc.id}: $e');
@@ -49,97 +48,83 @@ class ArticleRepositoryImpl implements ArticleRepository {
     }
   }
 
-  Future<ArticleEntity> _createArticleWithRealImage(DocumentSnapshot doc) async {
+  Future<ArticleEntity> _createArticleWithAuthor(DocumentSnapshot doc) async {
     final data = doc.data() as Map<String, dynamic>;
     final title = data['title']?.toString()?.trim() ?? 'Sin título';
     
     print('\n📰 Procesando: "$title"');
     
-    // Obtener URL gs:// de la base de datos
+    // 1. Obtener imagen (MÉTODO QUE FUNCIONA)
     final gsUrl = data['thumbnailURL']?.toString()?.trim() ?? 
                   data[' thumbnailURL']?.toString()?.trim() ?? '';
     
-    print('   🔗 URL en DB: $gsUrl');
+    String imageUrl = '';
+    if (gsUrl.isNotEmpty) {
+      imageUrl = await _getRealImageUrlFromGsUrl(gsUrl);
+    } else {
+      print('   ! No hay imagen en DB, usando por defecto');
+      imageUrl = _getFallbackImage(title);
+    }
     
-    // Obtener URL REAL de Firebase Storage
-    String imageUrl = await _getRealImageUrlFromGsUrl(gsUrl, title);
+    // 2. Obtener NOMBRE DEL AUTOR
+    String authorName = 'Anónimo';
+    final authorId = data['authorId']?.toString();
     
-    print('   🖼️ Imagen final: $imageUrl');
+    if (authorId != null && authorId.isNotEmpty) {
+      try {
+        print('   🔍 Buscando autor ID: $authorId');
+        final userDoc = await firestore
+            .collection('users')
+            .doc(authorId)
+            .get();
+        
+        if (userDoc.exists) {
+          final userData = userDoc.data() as Map<String, dynamic>;
+          authorName = userData['name']?.toString()?.trim() ?? 'Anónimo';
+          print('   ✅ Autor encontrado: $authorName');
+        } else {
+          print('   ⚠️ Autor no encontrado en Firestore');
+        }
+      } catch (e) {
+        print('   ❌ Error obteniendo autor: $e');
+      }
+    } else {
+      print('   ℹ️ No hay authorId en el artículo');
+    }
+    
+    // ✅ LÍNEA CORREGIDA: Usa min() correctamente
+    print('   👤 Autor final: $authorName');
+    print('   🖼️ Imagen: ${imageUrl.substring(0, min(60, imageUrl.length))}...');
     
     return ArticleEntity(
       id: doc.id.hashCode,
-      author: data['authorId']?.toString() ?? 'Anónimo',
+      author: authorName,
       title: title,
       description: data['excerpt']?.toString()?.trim() ?? '',
       url: '',
       urlToImage: imageUrl,
-      publishedAt: data['createdAt'] != null && data['createdAt'] is Timestamp
-          ? (data['createdAt'] as Timestamp).toDate().toIso8601String()
-          : DateTime.now().toIso8601String(),
+      publishedAt: _getPublishedAt(data),
       content: data['content']?.toString()?.trim() ?? '',
     );
   }
 
-  Future<String> _getRealImageUrlFromGsUrl(String gsUrl, String title) async {
-    if (gsUrl.isEmpty) {
-      print('   ⚠️ No hay imagen en DB, usando por defecto');
-      return _getFallbackImage(title);
-    }
-    
+  Future<String> _getRealImageUrlFromGsUrl(String gsUrl) async {
     try {
-      print('   🔄 Obteniendo URL REAL con Firebase Storage SDK...');
-      
-      // MÉTODO CORRECTO: Usar refFromURL del SDK
-      // Convierte gs:// directamente a referencia
+      // Usar refFromURL del SDK
       final storageRef = storage.refFromURL(gsUrl);
       
-      // Obtener URL de descarga REAL (con token de acceso)
+      // Obtener URL de descarga
       final downloadUrl = await storageRef.getDownloadURL();
-      
-      print('   ✅ ¡URL REAL OBTENIDA!');
-      print('      $downloadUrl');
       
       return downloadUrl;
       
     } catch (e) {
-      print('   ❌ Error obteniendo imagen real: $e');
-      
-      // Intentar método alternativo si refFromURL falla
-      return await _tryAlternativeMethod(gsUrl, title);
+      print('   ❌ Error obteniendo imagen: $e');
+      rethrow;
     }
-  }
-
-  Future<String> _tryAlternativeMethod(String gsUrl, String title) async {
-    print('   🔄 Intentando método alternativo...');
-    
-    try {
-      // Extraer path del archivo de la URL gs://
-      // Formato: gs://bucket/path/to/file.jpg
-      final withoutGs = gsUrl.substring(5); // Quitar "gs://"
-      final slashIndex = withoutGs.indexOf('/');
-      
-      if (slashIndex != -1) {
-        final filePath = withoutGs.substring(slashIndex + 1);
-        print('   📁 Path extraído: $filePath');
-        
-        // Crear referencia usando el path
-        final ref = storage.ref(filePath);
-        final downloadUrl = await ref.getDownloadURL();
-        
-        print('   ✅ ¡URL obtenida con método alternativo!');
-        return downloadUrl;
-      }
-    } catch (e) {
-      print('   ❌ Método alternativo también falló: $e');
-    }
-    
-    // Si todo falla, usar imagen por defecto
-    print('   ⚠️ Usando imagen por defecto');
-    return _getFallbackImage(title);
   }
 
   String _getFallbackImage(String title) {
-    // Imágenes reales de alta calidad de Unsplash
     final lowerTitle = title.toLowerCase();
     
     if (lowerTitle.contains('christmas') || lowerTitle.contains('navidad')) {
@@ -151,6 +136,18 @@ class ArticleRepositoryImpl implements ArticleRepository {
     else {
       return 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800&h=600&fit=crop';
     }
+  }
+
+  String _getPublishedAt(Map<String, dynamic> data) {
+    try {
+      if (data['createdAt'] != null && data['createdAt'] is Timestamp) {
+        return (data['createdAt'] as Timestamp).toDate().toIso8601String();
+      }
+    } catch (e) {
+      print('⚠️ Error parseando fecha: $e');
+    }
+    
+    return DateTime.now().toIso8601String();
   }
 
   @override
